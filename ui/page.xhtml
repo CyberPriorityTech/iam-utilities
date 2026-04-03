@@ -1,0 +1,73 @@
+<!DOCTYPE html PUBLIC
+  "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:ui="http://java.sun.com/jsf/facelets">
+
+<body>
+
+  <ui:composition>
+    <h3 align="middle">Application Onboarding</h3>
+    <div class="container" ng-app="ApplicationOnboarding"
+     ng-controller="AppOnoardingPluginFullPageCtrl">
+
+      <form name="searchForm">
+        <hr />
+        <h4>Import Users from CSV</h4>
+
+       <label for="dropdown">Choose the object type to search</label>
+				<sp-dropdown id="dropdown" sp-options="dropdownOptions"
+					sp-show-blank="false" sp-button-aria-label="Object Type Selection"
+					class="allowed-operations" ng-model="object"> </sp-dropdown>
+  
+
+        <br/>
+
+        <label for="csvFile">Upload CSV File</label>
+        <input type="file"
+               id="csvFile"
+               accept=".csv"
+               class="form-control"
+               file-model="csvFile"/>
+
+        <br/>
+
+        <button type="button"
+                class="btn btn-primary"
+                ng-click="uploadCSV()">
+          Upload CSV
+        </button>
+      </form>
+
+      <h4>Users Onboarding Status</h4>
+      <div class="panel" ng-if="showDiv">
+        <div class="panel-body">
+          <div class="col-xs-12">
+            <table class="table m-t table-hover table-bordered">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr ng-repeat="result in results">
+                  <td>{{ result }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <h3 class="text-muted text-center" ng-if="results.length === 0">
+              No Users Found to Process
+            </h3>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <script src="#{plugins.requestContextPath}/plugin/ApplicationOnboarding/ui/js/SailPointBundleLibrary.js"></script>
+    <script src="#{plugins.requestContextPath}/plugin/ApplicationOnboarding/ui/js/ApplicationOnboarding.js"></script>
+
+  </ui:composition>
+</body>
+</html>

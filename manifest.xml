@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Plugin PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Plugin certificationLevel="None" displayName="Application Onboarding" minSystemVersion="8.3" name="ApplicationOnboarding" version="2.0" rightRequired="AdminAppRights" >
+  <Attributes>
+    <Map>
+      <entry key="minUpgradableVersion" value="2.0" />
+      <entry key="fullPage">
+         <value>
+            <FullPage title="Application Onboarding"/>
+         </value>
+      </entry> 
+      <entry key="restResources">
+        <value>
+          <List>
+            <String>com.hhsc.iiq.uploadcsv.UserProvisioningResource</String>
+          </List>
+        </value>
+      </entry>
+      <entry key="settings">
+       <value>
+         <List>
+           <Setting dataType="int" helpText="The maximum number of objects to search. If there are 1000s or more objects of the type to search, the server could get overloaded" label="Max Objects to Search" name="maxSearchObjectCount" defaultValue="200"/>
+         </List>
+       </value>
+      </entry>
+    </Map>
+  </Attributes>
+</Plugin>
+
+

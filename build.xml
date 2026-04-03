@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="TrainingPlugin-master" default="package">
+	<!-- allow overriding of build properties -->
+	<property name="buildPlugins" location="build"/>
+	<property name="pluginName" value="ApplicationOnboarding"/>
+	<property name="iiq.home" location="C:/Users/Ganapatirao/software/SP/TOMCAT/apache-tomcat-9.0.89/webapps/identityiq"/>
+	<!-- Determines zip file name per zip encoding at end of build -->
+ 	<property name="version" value="0.0"/>
+
+	 <target name="clean">
+        <echo message="Starting clean target"/>
+        <delete dir="${buildPlugins}"/>
+    </target>
+	
+	<target name="package">
+		<property name="pluginBase" location="." />
+		<property name="pluginSrc" location="src" />
+		<property name="pluginBuild" location="${buildPlugins}/${pluginName}" />
+		<property name="pluginLib" location="${pluginBuild}/lib" />
+		<property name="pluginClasses" location="${pluginBuild}/classes" />
+		<property name="pluginContents" location="${pluginBuild}/contents" />
+        <echo>buildPlugins= ${buildPlugins}</echo>
+        <echo>pluginName= ${pluginName}</echo>
+        <echo>pluginBuild = ${pluginBuild}</echo>
+        <echo>pluginClasses = ${pluginClasses}</echo>
+		<mkdir dir="${pluginClasses}" />
+		<!-- include target="1.8" for compatibility with environments -->
+		<javac srcdir="${pluginSrc}" destdir="${pluginClasses}" includeantruntime="false" target="1.8">
+			<classpath>
+				<pathelement path="${iiq.home}/WEB-INF/classes"/>
+				<fileset dir="${iiq.home}/WEB-INF/lib">
+					<include name="**/*.jar"/>
+				</fileset>
+			</classpath>
+			<compilerarg value="-Xlint:deprecation" />
+			<compilerarg value="-Xlint:unchecked" />
+		</javac>
+
+		<mkdir dir="${pluginLib}" />
+
+		<jar destfile="${pluginLib}/${pluginName}.jar">
+			<fileset dir="${pluginClasses}">
+				<include name="**/*" />
+			</fileset>
+		</jar>
+
+		<mkdir dir="${pluginContents}" />
+
+		<copy todir="${pluginContents}">
+			<fileset dir="${pluginBase}">
+				<include name="manifest.xml" />
+				<include name="db/**" />
+				<include name="import/**" />
+				<include name="lib/*.jar" />
+				<include name="ui/**" />
+				<include name="messages/**" />
+			</fileset>
+			<fileset dir="${pluginBuild}">
+				<include name="lib/*.jar" />
+			</fileset>
+		</copy>
+
+		<zip encoding="UTF-8" baseDir="${pluginContents}" destfile="${pluginBuild}/dist/${pluginName}.${version}.zip">
+		</zip>
+	</target>
+</project>

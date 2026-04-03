@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+  <SPRight name="AdminAppRights" displayName="Admin Plugin Right">
+    <Description>Allow users to use the Application Onboarding Plugin</Description>
+  </SPRight>
+ 
+  <Capability name="PluginAdmin" displayName="Plugin Administrator">
+    <Description>Administrative user authorized for the Application Onboarding Plugin</Description>
+    <RightRefs>
+      <Reference class="sailpoint.object.SPRight" name="AdminAppRights"/>
+     </RightRefs>
+  </Capability>
+</sailpoint>
+
