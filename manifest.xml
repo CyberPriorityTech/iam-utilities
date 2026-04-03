@@ -1,0 +1,73 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Plugin PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Plugin certificationLevel="None" displayName="Show Workgroup Member" minSystemVersion="8.0" name="showWorkgroupMember" position="1" version="1.0">
+  <Attributes>
+    <Map>
+    <entry key="restResources">
+        <value>
+          <List>
+            <String>com.showwkgpmember.resource.ShowWorkgroupMemberResource</String>
+          </List>
+        </value>
+      </entry>
+      <entry key="settings">
+        <value>
+          <List>
+          	<Setting dataType="boolean" defaultValue="false" name="showOwner"/>
+            <Setting dataType="string" defaultValue="Display Name, Email" multiValue="true" name="memberProperties"/>
+          </List>
+        </value>
+      </entry>
+      <entry key="settingsForm">
+        <value>
+          <Form name="Show Workgroup Members">
+            <Attributes>
+              <Map>
+                <entry key="pageTitle" value="Show Workgroup Members Configuration"/>
+                <entry key="title" value="Show Workgroup Members Configuration"/>
+              </Map>
+            </Attributes>
+            <Description>Form for configuring Show Workgroup Members Plugin</Description>
+            <Section columns="1" name="Configuration">
+              <Field displayName="Show owner?" defaultValue="false" helpKey="Selecting this option will show the owner of workgroup along with members" type="boolean" name="showOwner"/>
+              <Field displayName="Message to show if no members are present" defaultValue="No members present in the workgroup, please contact operations team." helpKey="This message will be displayed if no members are present in the workgroup." type="string" name="defaultNoMemberMsg"/>
+              <Field displayName="Select member properties" helpKey="Select the properties which should be displayed for the member of workgroup" multi="true" name="memberProperties" type="string">
+                <AllowedValuesDefinition>
+                  <Script>
+                    <Source><![CDATA[
+                      import sailpoint.object.Identity;
+                      import sailpoint.object.ObjectAttribute;
+                      import sailpoint.tools.Util;
+                      import java.util.LinkedHashSet;
+                      import java.util.Set;
+
+                      Set objAttrDisplayName = new LinkedHashSet();
+                      List objAttrs = Identity.getObjectConfig().getSearchableAttributes();
+                      if(!Util.isEmpty(objAttrs)){
+                      for(ObjectAttribute objAttr:objAttrs){
+                      objAttrDisplayName.add(objAttr.getDisplayableName());
+                      }
+                      }
+                      return objAttrDisplayName;
+                    ]]></Source>
+                  </Script>
+                </AllowedValuesDefinition>
+              </Field>
+            </Section>
+          </Form>
+        </value>
+      </entry>
+      <entry key="snippets">
+        <value>
+          <List>
+            <Snippet regexPattern=".*/identityRequest/identityRequest.jsf*">
+              <Scripts>
+                <String>ui/js/snippets/ShowWkgpMember.js</String>
+              </Scripts>
+            </Snippet>
+          </List>
+        </value>
+      </entry>
+    </Map>
+  </Attributes>
+</Plugin>
