@@ -24,286 +24,205 @@
     </Returns>
   </Signature>
   <Source>
-    import java.text.SimpleDateFormat;
-    import java.util.ArrayList;
-    import java.util.Arrays;
-    import java.util.Date;
-    import java.util.HashMap;
-    import java.util.Iterator;
-    import java.util.LinkedHashSet;
-    import java.util.List;
-    import java.util.Map;
-    import java.util.Set;
+     // Beanshell / IIQ rule script
+import java.text.SimpleDateFormat;
+import java.util.*;
 
-    import org.apache.logging.log4j.LogManager;
-    import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-    import sailpoint.object.EmailOptions;
-    import sailpoint.object.EmailTemplate;
-    import sailpoint.object.Filter;
-    import sailpoint.object.Identity;
-    import sailpoint.object.Bundle;
-    import sailpoint.object.ManagedAttribute;
-    import sailpoint.object.QueryOptions;
-    import sailpoint.object.TaskResult;
-    import sailpoint.tools.GeneralException;
-    import sailpoint.tools.Util;
+import sailpoint.object.*;
+import sailpoint.tools.GeneralException;
+import sailpoint.tools.Util;
 
-    Logger logger = LogManager.getLogger("dim.iiq.rule.WorkgroupEmptyOrInactiveMembershipNotification");
+Logger logger = LogManager.getLogger("iiq.rule.WorkgroupEmptyOrInactiveMembershipNotification");
 
-    String adminWorkgroupName = "Test Work Group";
-    String emailTemplateName = "EmailTemplate - Workgroup Empty Or Inactive Membership Notification";
-    String activeStatusAttribute = "identity_status";
-    String activeStatusValue = "Active";
-    String excludedWorkgroupsCsv = null;
+// ----- Config -----
+String adminWorkgroupName = "AttributeSyncWorkGroup";
+String emailTemplateName = "Workgroup Empty Or Inactive Membership Notification";
+String activeStatusAttribute = "status";
+String activeStatusValue = "Active";
+String excludedWorkgroupsCsv = null;
+String notificationTo = "gani@gmail.com"; // change as needed
 
-    if (Util.isNullOrEmpty(adminWorkgroupName)) {
+if (Util.isNullOrEmpty(adminWorkgroupName)) {
     throw new GeneralException("Required argument 'adminWorkgroupName' is missing.");
-    }
+}
 
-    Set excludedWorkgroups = new LinkedHashSet();
-    if (Util.isNotNullOrEmpty(excludedWorkgroupsCsv)) {
+// build excluded set
+Set excludedWorkgroups = new LinkedHashSet();
+if (Util.isNotNullOrEmpty(excludedWorkgroupsCsv)) {
     excludedWorkgroups.addAll(Arrays.asList(excludedWorkgroupsCsv.split(",")));
-    }
+}
 
-    String escapeHtml(String input) {
-    if (input == null) {
-    return "";
-    }
-    String value = input;
-    value = value.replace("&amp;", "&amp;amp;");
-    value = value.replace("&lt;", "&amp;lt;");
-    value = value.replace(">", "&amp;gt;");
-    value = value.replace("\"", "&amp;quot;");
-    return value;
-    }
-
-    QueryOptions buildMemberQuery(String workgroupName, String activeAttribute, String activeValue, boolean activeOnly) {
-    QueryOptions queryOptions = new QueryOptions();
-    queryOptions.add(Filter.eq("workgroup", false));
-    queryOptions.add(Filter.eq("workgroups.name", workgroupName));
+// Helper: build member query
+QueryOptions buildMemberQuery(String workgroupName, String activeAttribute, String activeValue, boolean activeOnly) {
+    QueryOptions qo = new QueryOptions();
+    qo.add(Filter.eq("workgroup", false));
+    qo.add(Filter.eq("workgroups.name", workgroupName));
     if (activeOnly) {
-    queryOptions.add(Filter.eq(activeAttribute, activeValue));
+        qo.add(Filter.eq(activeAttribute, activeValue));
     }
-    return queryOptions;
-    }
+    return qo;
+}
 
-    String ownerIssue(Identity owner, String activeAttribute, String activeValue) {
+// Helper: determine owner issue
+String ownerIssue(Identity owner, String activeAttribute, String activeValue) {
     if (owner == null) {
-    return "Owner does not exist in Identity";
+        return "Owner does not exist in Identity";
     }
-
     if (owner.isWorkgroup()) {
-    int activeMembersInOwnerWg = context.countObjects(Identity.class, buildMemberQuery(owner.getName(), activeAttribute, activeValue, true));
-    if (activeMembersInOwnerWg == 0) {
-    return "Owner workgroup has no active members";
+        int activeMembersInOwnerWg = context.countObjects(Identity.class,
+                buildMemberQuery(owner.getName(), activeAttribute, activeValue, true));
+        if (activeMembersInOwnerWg == 0) {
+            return "Owner workgroup has no active members";
+        }
+        return null;
     }
-    return null;
-    }
-
     String ownerStatus = owner.getStringAttribute(activeAttribute);
     if (Util.isNotNullOrEmpty(ownerStatus) &amp;&amp; !activeValue.equalsIgnoreCase(ownerStatus)) {
-    return "Owner inactive (" + ownerStatus + ")";
+        return "Owner inactive (" + ownerStatus + ")";
     }
-
     return null;
+}
+
+// Collections to hold findings (each entry is Map)
+List workgroupFindings = new ArrayList();
+List bundleFindings = new ArrayList();
+List entitlementFindings = new ArrayList();
+
+// 1) Workgroups
+QueryOptions wgOptions = new QueryOptions();
+wgOptions.add(Filter.eq("workgroup", true));
+wgOptions.setOrderBy("name");
+wgOptions.setOrderAscending(true);
+
+Iterator wgIter = null;
+try {
+    wgIter = context.search(Identity.class, wgOptions);
+    while (wgIter != null &amp;&amp; wgIter.hasNext()) {
+        Identity wg = (Identity) wgIter.next();
+        String wgName = wg.getName();
+        if (excludedWorkgroups.contains(wgName)) continue;
+
+        int totalMembers = context.countObjects(Identity.class,
+                buildMemberQuery(wgName, activeStatusAttribute, activeStatusValue, false));
+        int activeMembers = context.countObjects(Identity.class,
+                buildMemberQuery(wgName, activeStatusAttribute, activeStatusValue, true));
+
+        String issueType = null;
+        if (totalMembers == 0) issueType = "No members";
+        else if (activeMembers == 0) issueType = "No active members";
+
+        if (issueType != null) {
+            Map f = new HashMap();
+            f.put("workgroupName", wgName);
+            f.put("displayName", Util.isNotNullOrEmpty(wg.getDisplayName()) ? wg.getDisplayName() : wgName);
+            f.put("issueType", issueType);
+            f.put("totalMembers", String.valueOf(totalMembers));
+            f.put("activeMembers", String.valueOf(activeMembers));
+            f.put("owner", (wg.getOwner() != null) ? wg.getOwner().getName() : "Unassigned");
+            f.put("groupEmail", Util.isNotNullOrEmpty(wg.getEmail()) ? wg.getEmail() : "");
+            workgroupFindings.add(f);
+        }
     }
+} finally {
+    Util.flushIterator(wgIter);
+}
 
-    List findings = new ArrayList();
-    List bundleFindings = new ArrayList();
-    List entitlementFindings = new ArrayList();
-
-    QueryOptions workgroupOptions = new QueryOptions();
-    workgroupOptions.add(Filter.eq("workgroup", true));
-    workgroupOptions.setOrderBy("name");
-    workgroupOptions.setOrderAscending(true);
-
-    Iterator workgroupIterator = null;
-    try {
-    workgroupIterator = context.search(Identity.class, workgroupOptions);
-    while (workgroupIterator != null &amp;&amp; workgroupIterator.hasNext()) {
-    Identity workgroup = (Identity) workgroupIterator.next();
-    String workgroupName = workgroup.getName();
-
-    if (excludedWorkgroups.contains(workgroupName)) {
-    continue;
-    }
-
-    int totalMembers = context.countObjects(Identity.class, buildMemberQuery(workgroupName, activeStatusAttribute, activeStatusValue, false));
-    int activeMembers = context.countObjects(Identity.class, buildMemberQuery(workgroupName, activeStatusAttribute, activeStatusValue, true));
-
-    String issueType = null;
-    if (totalMembers == 0) {
-    issueType = "No members";
-    } else if (activeMembers == 0) {
-    issueType = "No active members";
-    }
-
-    if (issueType != null) {
-    Map finding = new HashMap();
-    finding.put("workgroupName", workgroupName);
-    finding.put("displayName", Util.isNotNullOrEmpty(workgroup.getDisplayName()) ? workgroup.getDisplayName() : workgroupName);
-    finding.put("owner", (workgroup.getOwner() != null) ? workgroup.getOwner().getName() : "Unassigned");
-    finding.put("email", Util.isNotNullOrEmpty(workgroup.getEmail()) ? workgroup.getEmail() : "");
-    finding.put("issueType", issueType);
-    finding.put("totalMembers", String.valueOf(totalMembers));
-    finding.put("activeMembers", String.valueOf(activeMembers));
-    findings.add(finding);
-    }
-    }
-    } finally {
-    Util.flushIterator(workgroupIterator);
-    }
-
-    Iterator bundleIterator = null;
-    try {
+// 2) Bundles
+Iterator bundleIter = null;
+try {
     QueryOptions bundleOptions = new QueryOptions();
     bundleOptions.setOrderBy("name");
     bundleOptions.setOrderAscending(true);
-
-    bundleIterator = context.search(Bundle.class, bundleOptions);
-    while (bundleIterator != null &amp;&amp; bundleIterator.hasNext()) {
-    Bundle bundle = (Bundle) bundleIterator.next();
-    Identity owner = bundle.getOwner();
-    String ownerIssueType = ownerIssue(owner, activeStatusAttribute, activeStatusValue);
-
-    if (ownerIssueType != null) {
-    Map finding = new HashMap();
-    finding.put("bundleName", bundle.getName());
-    finding.put("bundleDisplayName", Util.isNotNullOrEmpty(bundle.getDisplayName()) ? bundle.getDisplayName() : bundle.getName());
-    finding.put("ownerType", (owner == null) ? "N/A" : (owner.isWorkgroup() ? "Workgroup" : "Identity"));
-    finding.put("ownerName", (owner == null) ? "Not Found" : owner.getName());
-    finding.put("issueType", ownerIssueType);
-    bundleFindings.add(finding);
+    bundleIter = context.search(Bundle.class, bundleOptions);
+    while (bundleIter != null &amp;&amp; bundleIter.hasNext()) {
+        Bundle b = (Bundle) bundleIter.next();
+        Identity owner = b.getOwner();
+        String ownerIssueType = ownerIssue(owner, activeStatusAttribute, activeStatusValue);
+        if (ownerIssueType != null) {
+            Map f = new HashMap();
+            f.put("bundleName", b.getName());
+            f.put("displayName", Util.isNotNullOrEmpty(b.getDisplayName()) ? b.getDisplayName() : b.getName());
+            f.put("ownerType", (owner == null) ? "N/A" : (owner.isWorkgroup() ? "Workgroup" : "Identity"));
+            f.put("ownerName", (owner == null) ? "Not Found" : owner.getName());
+            f.put("issueType", ownerIssueType);
+            bundleFindings.add(f);
+        }
     }
-    }
-    } finally {
-    Util.flushIterator(bundleIterator);
-    }
+} finally {
+    Util.flushIterator(bundleIter);
+}
 
-    Iterator entitlementIterator = null;
-    try {
-    QueryOptions entitlementOptions = new QueryOptions();
-    entitlementOptions.setOrderBy("application.name");
-    entitlementOptions.add(Filter.eq("application.name", "EntraID"));
-    entitlementOptions.setOrderAscending(true);
-
-    entitlementIterator = context.search(ManagedAttribute.class, entitlementOptions);
-    while (entitlementIterator != null &amp;&amp; entitlementIterator.hasNext()) {
-    ManagedAttribute managedAttribute = (ManagedAttribute) entitlementIterator.next();
-    Identity owner = managedAttribute.getOwner();
-    String ownerIssueType = ownerIssue(owner, activeStatusAttribute, activeStatusValue);
-
-    if (ownerIssueType != null) {
-    Map finding = new HashMap();
-    finding.put("applicationName", (managedAttribute.getApplication() != null) ? managedAttribute.getApplication().getName() : "");
-    finding.put("attribute", managedAttribute.getAttribute());
-    finding.put("value", managedAttribute.getValue());
-    finding.put("displayName", Util.isNotNullOrEmpty(managedAttribute.getDisplayName()) ? managedAttribute.getDisplayName() : "");
-    finding.put("ownerType", (owner == null) ? "N/A" : (owner.isWorkgroup() ? "Workgroup" : "Identity"));
-    finding.put("ownerName", (owner == null) ? "Not Found" : owner.getName());
-    finding.put("issueType", ownerIssueType);
-    entitlementFindings.add(finding);
+// 3) Entitlements (ManagedAttribute)
+Iterator entIter = null;
+try {
+    QueryOptions entOptions = new QueryOptions();
+    entOptions.setOrderBy("application.name");
+    entOptions.setOrderAscending(true);
+    entIter = context.search(ManagedAttribute.class, entOptions);
+    while (entIter != null &amp;&amp; entIter.hasNext()) {
+        ManagedAttribute ma = (ManagedAttribute) entIter.next();
+        Identity owner = ma.getOwner();
+        String ownerIssueType = ownerIssue(owner, activeStatusAttribute, activeStatusValue);
+        if (ownerIssueType != null) {
+            Map f = new HashMap();
+            f.put("applicationName", (ma.getApplication() != null) ? ma.getApplication().getName() : "");
+            f.put("attribute", ma.getAttribute());
+            f.put("value", ma.getValue());
+            f.put("displayName", Util.isNotNullOrEmpty(ma.getDisplayName()) ? ma.getDisplayName() : "");
+            f.put("ownerType", (owner == null) ? "N/A" : (owner.isWorkgroup() ? "Workgroup" : "Identity"));
+            f.put("ownerName", (owner == null) ? "Not Found" : owner.getName());
+            f.put("issueType", ownerIssueType);
+            entitlementFindings.add(f);
+        }
     }
-    }
-    } finally {
-    Util.flushIterator(entitlementIterator);
-    }
+} finally {
+    Util.flushIterator(entIter);
+}
 
-    String resultMessage = "No issues found for workgroups, bundles, or entitlements owner validation.";
+// Prepare variables for template: pass lists directly
+Map variables = new HashMap();
+variables.put("adminWorkgroupName", adminWorkgroupName);
+variables.put("workgroupCount", String.valueOf(workgroupFindings.size()));
+variables.put("bundleCount", String.valueOf(bundleFindings.size()));
+variables.put("entitlementCount", String.valueOf(entitlementFindings.size()));
+variables.put("reportDate", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+variables.put("workgroupFindings", workgroupFindings);
+variables.put("bundleFindings", bundleFindings);
+variables.put("entitlementFindings", entitlementFindings);
 
-    if (!findings.isEmpty() || !bundleFindings.isEmpty() || !entitlementFindings.isEmpty()) {
-    Identity adminWorkgroup = context.getObjectByName(Identity.class, adminWorkgroupName);
-    if (adminWorkgroup == null || !adminWorkgroup.isWorkgroup()) {
-    throw new GeneralException("Admin workgroup '" + adminWorkgroupName + "' was not found or is not a workgroup.");
-    }
-
+// Send email if any findings
+String resultMessage = "No issues found for workgroups, bundles, or entitlements owner validation.";
+if (!workgroupFindings.isEmpty() || !bundleFindings.isEmpty() || !entitlementFindings.isEmpty()) {
     EmailTemplate emailTemplate = context.getObjectByName(EmailTemplate.class, emailTemplateName);
     if (emailTemplate == null) {
-    throw new GeneralException("Email template '" + emailTemplateName + "' was not found.");
+        throw new GeneralException("Email template '" + emailTemplateName + "' was not found.");
     }
-
-    StringBuilder htmlRows = new StringBuilder();
-    for (Object object : findings) {
-    Map finding = (Map) object;
-    htmlRows.append("&lt;tr>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("workgroupName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("displayName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("issueType"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("totalMembers"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("activeMembers"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("owner"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("email"))).append("&lt;/td>")
-    .append("&lt;/tr>");
-    }
-
-    Map variables = new HashMap();
-    variables.put("adminWorkgroupName", adminWorkgroupName);
-    variables.put("workgroupCount", String.valueOf(findings.size()));
-    variables.put("bundleCount", String.valueOf(bundleFindings.size()));
-    variables.put("entitlementCount", String.valueOf(entitlementFindings.size()));
-    variables.put("reportDate", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-    variables.put("workgroupSummaryHtml", htmlRows.toString());
-
-    StringBuilder bundleHtmlRows = new StringBuilder();
-    if (bundleFindings.isEmpty()) {
-    bundleHtmlRows.append("&lt;tr>&lt;td colspan='5'>No bundles found with inactive/missing owner.&lt;/td>&lt;/tr>");
-    } else {
-    for (Object object : bundleFindings) {
-    Map finding = (Map) object;
-    bundleHtmlRows.append("&lt;tr>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("bundleName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("bundleDisplayName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("ownerType"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("ownerName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("issueType"))).append("&lt;/td>")
-    .append("&lt;/tr>");
-    }
-    }
-    variables.put("bundleSummaryHtml", bundleHtmlRows.toString());
-
-    StringBuilder entitlementHtmlRows = new StringBuilder();
-    if (entitlementFindings.isEmpty()) {
-    entitlementHtmlRows.append("&lt;tr>&lt;td colspan='7'>No entitlements found with inactive/missing owner.&lt;/td>&lt;/tr>");
-    } else {
-    for (Object object : entitlementFindings) {
-    Map finding = (Map) object;
-    entitlementHtmlRows.append("&lt;tr>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("applicationName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("attribute"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("value"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("displayName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("ownerType"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("ownerName"))).append("&lt;/td>")
-    .append("&lt;td>").append(escapeHtml((String) finding.get("issueType"))).append("&lt;/td>")
-    .append("&lt;/tr>");
-    }
-    }
-    variables.put("entitlementSummaryHtml", entitlementHtmlRows.toString());
 
     EmailOptions emailOptions = new EmailOptions();
-    emailOptions.setTo("support@cyprtech.com");
+    emailOptions.setTo(notificationTo);
     emailOptions.setVariables(variables);
     context.sendEmailNotification(emailTemplate, emailOptions);
-    }
 
-    resultMessage = "Sent owner validation notification to admin workgroup '" + adminWorkgroupName + "' for "
-    + findings.size() + " workgroups, "
-    + bundleFindings.size() + " bundles, and "
-    + entitlementFindings.size() + " entitlements.";
-    }
-    
-    if (taskResult != null) {
+    resultMessage = "Sent owner validation notification to '" + notificationTo + "' for "
+            + workgroupFindings.size() + " workgroups, "
+            + bundleFindings.size() + " bundles, and "
+            + entitlementFindings.size() + " entitlements.";
+}
+
+if (taskResult != null) {
     taskResult.setAttribute("adminWorkgroupName", adminWorkgroupName);
     taskResult.setAttribute("emailTemplateName", emailTemplateName);
-    taskResult.setAttribute("workgroupsFlagged", findings.size());
+    taskResult.setAttribute("workgroupsFlagged", workgroupFindings.size());
     taskResult.setAttribute("bundlesFlagged", bundleFindings.size());
     taskResult.setAttribute("entitlementsFlagged", entitlementFindings.size());
     taskResult.setAttribute("status", resultMessage);
-    }
-    
+}
 
-    logger.info(resultMessage);
-    return resultMessage;
+logger.debug(resultMessage);
+return resultMessage;
+
   </Source>
 </Rule>

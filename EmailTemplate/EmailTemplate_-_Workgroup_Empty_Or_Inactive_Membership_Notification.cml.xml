@@ -1,61 +1,113 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE EmailTemplate PUBLIC "sailpoint.dtd" "sailpoint.dtd">
-<EmailTemplate name="EmailTemplate - Workgroup Empty Or Inactive Membership Notification">
+<EmailTemplate name="Workgroup Empty Or Inactive Membership Notification">
   <Body>
-    &lt;html>
-    &lt;body>
+&lt;html>
+  &lt;body>
     Hello Team,&lt;br/>&lt;br/>
     The ownership validation completed on $reportDate.&lt;br/>
     Summary: &lt;b>$workgroupCount&lt;/b> workgroups, &lt;b>$bundleCount&lt;/b> bundles, and &lt;b>$entitlementCount&lt;/b> entitlements require review.&lt;br/>&lt;br/>
     Admin workgroup: &lt;b>$adminWorkgroupName&lt;/b>&lt;br/>&lt;br/>
 
     &lt;b>1) Workgroups with no members or no active members&lt;/b>&lt;br/>&lt;br/>
-    &lt;table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
-    &lt;tr bgcolor="#D9EAF7">
-    &lt;th>Workgroup Name&lt;/th>
-    &lt;th>Display Name&lt;/th>
-    &lt;th>Issue Type&lt;/th>
-    &lt;th>Total Members&lt;/th>
-    &lt;th>Active Members&lt;/th>
-    &lt;th>Owner&lt;/th>
-    &lt;th>Group Email&lt;/th>
-    &lt;/tr>
-    $workgroupSummaryHtml
+    &lt;table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
+      &lt;thead>
+        &lt;tr bgcolor="#D9EAF7">
+          &lt;th>Workgroup Name&lt;/th>
+          &lt;th>Display Name&lt;/th>
+          &lt;th>Issue Type&lt;/th>
+          &lt;th>Total Members&lt;/th>
+          &lt;th>Active Members&lt;/th>
+          &lt;th>Owner&lt;/th>
+          &lt;th>Group Email&lt;/th>
+        &lt;/tr>
+      &lt;/thead>
+      &lt;tbody>
+        #if($workgroupFindings &amp;&amp; $workgroupFindings.size() > 0)
+          #foreach($wg in $workgroupFindings)
+            &lt;tr>
+              &lt;td>$wg.workgroupName&lt;/td>
+              &lt;td>$wg.displayName&lt;/td>
+              &lt;td>$wg.issueType&lt;/td>
+              &lt;td>$wg.totalMembers&lt;/td>
+              &lt;td>$wg.activeMembers&lt;/td>
+              &lt;td>$wg.owner&lt;/td>
+              &lt;td>$wg.groupEmail&lt;/td>
+            &lt;/tr>
+          #end
+        #else
+          &lt;tr>&lt;td colspan="7">No workgroups found with issues.&lt;/td>&lt;/tr>
+        #end
+      &lt;/tbody>
     &lt;/table>
     &lt;br/>
 
     &lt;b>2) Bundles with inactive/missing owner&lt;/b>&lt;br/>&lt;br/>
-    &lt;table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
-    &lt;tr bgcolor="#FBE5D6">
-    &lt;th>Bundle Name&lt;/th>
-    &lt;th>Display Name&lt;/th>
-    &lt;th>Owner Type&lt;/th>
-    &lt;th>Owner Name&lt;/th>
-    &lt;th>Issue Type&lt;/th>
-    &lt;/tr>
-    $bundleSummaryHtml
+    &lt;table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
+      &lt;thead>
+        &lt;tr bgcolor="#FBE5D6">
+          &lt;th>Bundle Name&lt;/th>
+          &lt;th>Display Name&lt;/th>
+          &lt;th>Owner Type&lt;/th>
+          &lt;th>Owner Name&lt;/th>
+          &lt;th>Issue Type&lt;/th>
+        &lt;/tr>
+      &lt;/thead>
+      &lt;tbody>
+        #if($bundleFindings &amp;&amp; $bundleFindings.size() > 0)
+          #foreach($b in $bundleFindings)
+            &lt;tr>
+              &lt;td>$b.bundleName&lt;/td>
+              &lt;td>$b.displayName&lt;/td>
+              &lt;td>$b.ownerType&lt;/td>
+              &lt;td>$b.ownerName&lt;/td>
+              &lt;td>$b.issueType&lt;/td>
+            &lt;/tr>
+          #end
+        #else
+          &lt;tr>&lt;td colspan="5">No bundles found with inactive/missing owner.&lt;/td>&lt;/tr>
+        #end
+      &lt;/tbody>
     &lt;/table>
     &lt;br/>
 
     &lt;b>3) Entitlements with inactive/missing owner&lt;/b>&lt;br/>&lt;br/>
-    &lt;table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse;">
-    &lt;tr bgcolor="#E2F0D9">
-    &lt;th>Application&lt;/th>
-    &lt;th>Attribute&lt;/th>
-    &lt;th>Value&lt;/th>
-    &lt;th>Display Name&lt;/th>
-    &lt;th>Owner Type&lt;/th>
-    &lt;th>Owner Name&lt;/th>
-    &lt;th>Issue Type&lt;/th>
-    &lt;/tr>
-    $entitlementSummaryHtml
+    &lt;table border="1" cellpadding="5" cellspacing="0" style="border-collapse:collapse; width:100%;">
+      &lt;thead>
+        &lt;tr bgcolor="#E2F0D9">
+          &lt;th>Application&lt;/th>
+          &lt;th>Attribute&lt;/th>
+          &lt;th>Value&lt;/th>
+          &lt;th>Display Name&lt;/th>
+          &lt;th>Owner Type&lt;/th>
+          &lt;th>Owner Name&lt;/th>
+          &lt;th>Issue Type&lt;/th>
+        &lt;/tr>
+      &lt;/thead>
+      &lt;tbody>
+        #if($entitlementFindings &amp;&amp; $entitlementFindings.size() > 0)
+          #foreach($e in $entitlementFindings)
+            &lt;tr>
+              &lt;td>$e.applicationName&lt;/td>
+              &lt;td>$e.attribute&lt;/td>
+              &lt;td>$e.value&lt;/td>
+              &lt;td>$e.displayName&lt;/td>
+              &lt;td>$e.ownerType&lt;/td>
+              &lt;td>$e.ownerName&lt;/td>
+              &lt;td>$e.issueType&lt;/td>
+            &lt;/tr>
+          #end
+        #else
+          &lt;tr>&lt;td colspan="7">No entitlements found with inactive/missing owner.&lt;/td>&lt;/tr>
+        #end
+      &lt;/tbody>
     &lt;/table>
     &lt;br/>
 
     Regards,&lt;br/>
     IdentityIQ
-    &lt;/body>
-    &lt;/html>
+  &lt;/body>
+&lt;/html>
   </Body>
   <Description>Email notification listing workgroup, bundle, and entitlement owner/membership issues.</Description>
   <Subject>Owner validation summary - WG:$workgroupCount Bundle:$bundleCount Ent:$entitlementCount</Subject>
